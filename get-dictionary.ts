@@ -1,13 +1,38 @@
+import { CommonType, Locale } from "@portfolio/types";
 import "server-only";
-import type { Locale } from "./i18n-config";
 
 // We enumerate all dictionaries here for better linting and typescript support
 // We also get the default import for cleaner types
-const dictionaries = {
-  en: () => import("./dictionaries/en.json").then((module) => module.default),
-  de: () => import("./dictionaries/de.json").then((module) => module.default),
-  cs: () => import("./dictionaries/cs.json").then((module) => module.default),
+const dictionaries = <T extends Record<string, any>>(
+  locale: Locale,
+  page?: string
+): Promise<{ common: CommonType } & T> => {
+  const translations = [
+    import(`./dictionaries/${locale}/common.json`).then(
+      (module) => module.default
+    ),
+  ];
+
+  if (page)
+    translations.push(
+      import(`./dictionaries/${locale}/${page}.json`).then(
+        (module) => module.default
+      )
+    );
+
+  return Promise.all(translations).then(([common, ...others]) => {
+    if (!page) return { common };
+
+    return {
+      common,
+      ...others[0],
+    };
+  });
 };
 
-export const getDictionary = async (locale: Locale) =>
-  dictionaries[locale]?.() ?? dictionaries.en();
+export const getDictionary = async <
+  T extends Record<string, any> = Record<string, any>
+>(
+  locale: Locale,
+  page?: string
+) => dictionaries<T>(locale, page) ?? dictionaries<T>("en", page);
